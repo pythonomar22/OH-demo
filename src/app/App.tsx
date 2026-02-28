@@ -1,14 +1,12 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import {
-  Menu,
   ChevronLeft,
   Wifi,
   Signal,
   Sparkles,
   ArrowRight,
 } from "lucide-react";
-import { NotesSidebar } from "./components/NotesSidebar";
 import { DrawingToolbar, DrawingTool } from "./components/DrawingToolbar";
 import { TranscriptModal } from "./components/TranscriptModal";
 import { SceneOne } from "./components/scenes/SceneOne";
@@ -32,7 +30,6 @@ const SCENE_NOTES = [
 
 export default function App() {
   const [scene, setScene] = useState(1);
-  const [sidebarOpen, setSidebarOpen] = useState(true);
   const [currentTool, setCurrentTool] = useState<DrawingTool>("pen");
   const [currentColor, setCurrentColor] = useState("#1C1C1E");
   const [strokeSize, setStrokeSize] = useState(2);
@@ -88,33 +85,10 @@ export default function App() {
 
         {/* Main layout */}
         <div className="flex flex-1 overflow-hidden">
-          {/* Sidebar (hidden for Scenes 2 & 3) */}
-          {(scene === 1) && (
-            <NotesSidebar isOpen={sidebarOpen} activeScene={scene} />
-          )}
-
           {/* Content */}
           <div className="flex-1 flex flex-col overflow-hidden relative">
             {/* Toolbar row */}
             <div className="flex items-center h-14 bg-white border-b border-[#E5E5EA] shrink-0 z-10">
-              {/* Sidebar toggle */}
-              <button
-                onClick={() => setSidebarOpen(!sidebarOpen)}
-                className="w-14 h-14 flex items-center justify-center hover:bg-[#F2F2F7] transition-colors shrink-0 border-r border-[#E5E5EA]"
-              >
-                <AnimatePresence mode="wait">
-                  {sidebarOpen ? (
-                    <motion.div key="close" initial={{ opacity: 0, rotate: -90 }} animate={{ opacity: 1, rotate: 0 }} exit={{ opacity: 0 }}>
-                      <ChevronLeft size={19} className="text-[#6B7280]" />
-                    </motion.div>
-                  ) : (
-                    <motion.div key="open" initial={{ opacity: 0, rotate: 90 }} animate={{ opacity: 1, rotate: 0 }} exit={{ opacity: 0 }}>
-                      <Menu size={19} className="text-[#6B7280]" />
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </button>
-
               <div className="flex-1 overflow-hidden">
                 <DrawingToolbar
                   currentTool={currentTool}

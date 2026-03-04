@@ -1,34 +1,28 @@
 import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { Mic, MicOff, Sparkles } from "lucide-react";
-import { AnimatedHandwriting } from "../AnimatedHandwriting";
+import { AnimatedHandwriting, AnimatedCircles } from "../AnimatedHandwriting";
 import type { TextLine } from "../AnimatedHandwriting";
 import { PDFPageView } from "../PDFPageView";
 
 // All coordinates are in PDF points (viewBox 0 0 612 792).
 // Page 3 answer area starts at approximately y=220pt.
 
+// User writes work including the wrong step — they don't realize the mistake.
 const USER_ATTEMPT: TextLine[] = [
   { id: "a1", text: "Let  mn = 2k  and  m = 2p + 1   ( k, p ∈ ℤ )", x: 80, y: 255, color: "#1C1C1E", fontSize: 15, startDelay: 600, charSpeed: 26 },
   { id: "a2", text: "Then  2k  =  (2p + 1) · n", x: 80, y: 280, color: "#1C1C1E", fontSize: 15, startDelay: 3200, charSpeed: 26 },
-  { id: "a3", text: "     n  =  2k / (2p + 1)  ← ✗", x: 80, y: 305, color: "#1C1C1E", fontSize: 15, startDelay: 5000, charSpeed: 26 },
+  { id: "a3", text: "     n  =  2k / (2p + 1)", x: 80, y: 305, color: "#1C1C1E", fontSize: 15, startDelay: 5000, charSpeed: 26 },
+  { id: "a4", text: "so  n  is even since  2k / (2p+1)  is...", x: 80, y: 335, color: "#1C1C1E", fontSize: 15, startDelay: 7200, charSpeed: 26 },
 ];
 
-const AI_HINT_1: TextLine[] = [
+// AI annotation after circling — single short note
+const AI_RECONSIDER: TextLine[] = [
   {
-    id: "h1",
-    text: "consider: proof by contradiction?",
-    x: 80, y: 350,
-    color: "#6366F1", fontSize: 14, startDelay: 0, charSpeed: 18,
-  },
-];
-
-const AI_HINT_2: TextLine[] = [
-  {
-    id: "h2",
-    text: "  assume n is odd  →  find contradiction",
-    x: 80, y: 375,
-    color: "#6366F1", fontSize: 14, startDelay: 0, charSpeed: 18,
+    id: "rc1",
+    text: "reconsider this step",
+    x: 340, y: 305,
+    color: "#6366F1", fontSize: 14, startDelay: 800, charSpeed: 18,
   },
 ];
 
@@ -49,12 +43,16 @@ interface SceneThreeProps {
 export function SceneThree({ isActive }: SceneThreeProps) {
   const [phase, setPhase] = useState(0);
   const [micActive, setMicActive] = useState(false);
+  const [aiWriting, setAiWriting] = useState(false);
+  const [scrollOffset, setScrollOffset] = useState(0);
   const timersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
 
   useEffect(() => {
     if (!isActive) {
       setPhase(0);
       setMicActive(false);
+      setAiWriting(false);
+      setScrollOffset(0);
       return;
     }
     timersRef.current.forEach(clearTimeout);
@@ -64,24 +62,41 @@ export function SceneThree({ isActive }: SceneThreeProps) {
       timersRef.current.push(setTimeout(fn, delay));
     };
 
+    // Phase 1: User writes attempt (including wrong step + continuation)
     push(() => setPhase(1), 400);
-    push(() => setPhase(2), 8000);
-    push(() => { setPhase(3); setMicActive(true); }, 11500);
-    push(() => { setPhase(4); setMicActive(false); }, 15000);
-    push(() => setPhase(5), 17000);
-    push(() => { setPhase(6); setMicActive(true); }, 21000);
-    push(() => { setPhase(7); setMicActive(false); }, 24500);
-    push(() => setPhase(8), 26500);
-    push(() => setPhase(9), 30500);
-    push(() => setPhase(10), 63000);
+
+    // Phase 2: User gets stuck, hint button starts pulsing
+    push(() => setPhase(2), 11000);
+
+    // Phase 3: User clicks hint → AI circles the wrong line + writes "reconsider this step"
+    push(() => { setPhase(3); setAiWriting(true); }, 13000);
+    push(() => setAiWriting(false), 16000);
+
+    // Phase 4-6: Voice conversation — back-and-forth mic toggling
+    push(() => { setPhase(4); setMicActive(true); }, 17000);   // user speaks
+    push(() => setMicActive(false), 20000);                     // user stops
+    push(() => { setPhase(5); setMicActive(true); }, 21000);   // AI responds
+    push(() => setMicActive(false), 24000);                     // AI stops
+    push(() => { setPhase(6); setMicActive(true); }, 25000);   // user speaks again
+    push(() => setMicActive(false), 27500);                     // user stops
+
+    // Phase 8: User starts writing correct proof
+    push(() => setPhase(8), 29000);
+
+    // Scroll down midway through proof writing to reveal the final lines
+    // pr5 starts at 29000 + 22000 = 51000ms, scroll just before that
+    push(() => setScrollOffset(120), 48000);
+
+    // Phase 9: Done
+    push(() => setPhase(9), 62000);
 
     return () => timersRef.current.forEach(clearTimeout);
   }, [isActive]);
 
-  const showStrike = phase >= 2;
-  const showHint1 = phase >= 5;
-  const showHint2 = phase >= 8;
-  const proofActive = phase >= 9;
+  const hintPulsing = phase === 2;
+  const showCircles = phase >= 3;
+  const showReconsider = phase >= 3;
+  const proofActive = phase >= 8;
 
   return (
     <div className="flex-1 flex flex-col overflow-hidden relative bg-[#F2F2F7]">
@@ -91,33 +106,26 @@ export function SceneThree({ isActive }: SceneThreeProps) {
             pageNumber={3}
             width={700}
             className="rounded-lg shadow-xl"
+            scrollOffset={scrollOffset}
           >
-            {/* User attempt */}
+            {/* User attempt — no self-correction marks */}
             {phase >= 1 && (
               <AnimatedHandwriting lines={USER_ATTEMPT} isActive={phase >= 1} />
             )}
 
-            {/* Red strikethrough on bad line */}
-            {showStrike && (
-              <line
-                x1="78" y1="301" x2="330" y2="309"
-                stroke="#EF4444" strokeWidth="2" strokeLinecap="round" opacity="0.7"
-                strokeDasharray="320"
-                style={{
-                  strokeDashoffset: "320",
-                  animation: "drawPath 0.45s ease-out forwards",
-                }}
+            {/* AI circles around the wrong line (a3) */}
+            {showCircles && (
+              <AnimatedCircles
+                isActive
+                circles={[
+                  { id: "c1", cx: 200, cy: 300, rx: 135, ry: 14, color: "#6366F1", startDelay: 0 },
+                ]}
               />
             )}
 
-            {/* AI hint 1 */}
-            {showHint1 && (
-              <AnimatedHandwriting lines={AI_HINT_1} isActive />
-            )}
-
-            {/* AI hint 2 */}
-            {showHint2 && (
-              <AnimatedHandwriting lines={AI_HINT_2} isActive />
+            {/* AI annotation: "reconsider this step" */}
+            {showReconsider && (
+              <AnimatedHandwriting lines={AI_RECONSIDER} isActive />
             )}
 
             {/* Thin separator before proof */}
@@ -131,7 +139,7 @@ export function SceneThree({ isActive }: SceneThreeProps) {
             )}
 
             {/* Done */}
-            {phase >= 10 && (
+            {phase >= 9 && (
               <text x="80" y="655" fontSize="15" fill="#10B981" fontFamily="Caveat, cursive" fontWeight="600">
                 ✓ Proof complete!
               </text>
@@ -144,19 +152,57 @@ export function SceneThree({ isActive }: SceneThreeProps) {
       <div className="absolute right-5 top-1/2 -translate-y-1/2 z-40 flex flex-col items-center gap-3">
         {/* AI hint button */}
         <div className="relative">
-          {phase === 2 && (
+          {/* Pulsing ring when hint is available */}
+          {hintPulsing && (
             <motion.div
               animate={{ scale: [1, 1.8, 1], opacity: [0.6, 0, 0.6] }}
               transition={{ duration: 1.1, repeat: Infinity }}
               className="absolute inset-0 rounded-2xl bg-[#6366F1]"
             />
           )}
+          {/* Spinning ring while AI is annotating */}
+          {aiWriting && (
+            <motion.div
+              animate={{ rotate: 360 }}
+              transition={{ duration: 1.4, repeat: Infinity, ease: "linear" }}
+              className="absolute -inset-1.5 rounded-3xl border-2 border-transparent border-t-[#6366F1] border-r-[#8B5CF6]"
+            />
+          )}
           <button
-            className="w-12 h-12 rounded-2xl flex items-center justify-center shadow-lg bg-gradient-to-br from-[#6366F1] to-[#8B5CF6]"
-            style={{ boxShadow: "0 4px 16px rgba(99,102,241,0.4)" }}
+            className={`relative w-12 h-12 rounded-2xl flex items-center justify-center shadow-lg transition-colors ${phase >= 3
+                ? "bg-gradient-to-br from-[#5558E3] to-[#7C3AED]"
+                : "bg-gradient-to-br from-[#6366F1] to-[#8B5CF6]"
+              }`}
+            style={{ boxShadow: "0 4px 16px rgba(99,102,241,0.45)" }}
           >
             <Sparkles size={20} color="white" />
           </button>
+          {/* "AI annotating" tooltip */}
+          <AnimatePresence>
+            {aiWriting && (
+              <motion.div
+                initial={{ opacity: 0, x: 8 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: 8 }}
+                className="absolute right-14 top-1/2 -translate-y-1/2 bg-white rounded-xl px-2.5 py-1.5 shadow-md border border-[#E5E5EA] flex items-center gap-1.5 whitespace-nowrap"
+              >
+                {[0, 0.15, 0.3].map((d, i) => (
+                  <motion.div
+                    key={i}
+                    animate={{ y: [0, -3, 0] }}
+                    transition={{ duration: 0.5, repeat: Infinity, delay: d }}
+                    className="w-1.5 h-1.5 rounded-full bg-[#6366F1]"
+                  />
+                ))}
+                <span
+                  className="text-[11px] text-[#6366F1] font-medium"
+                  style={{ fontFamily: "Inter" }}
+                >
+                  AI annotating
+                </span>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
 
         {/* Mic button */}

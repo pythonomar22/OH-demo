@@ -19,6 +19,8 @@ interface PDFPageViewProps {
   width?: number;
   className?: string;
   children?: React.ReactNode;
+  /** Vertical scroll offset in PDF points — shifts the viewBox to simulate scrolling down */
+  scrollOffset?: number;
 }
 
 export function PDFPageView({
@@ -26,6 +28,7 @@ export function PDFPageView({
   width = 700,
   className = "",
   children,
+  scrollOffset = 0,
 }: PDFPageViewProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [dims, setDims] = useState({
@@ -76,29 +79,41 @@ export function PDFPageView({
 
   const estimatedHeight = dims.cssHeight || Math.round(width * 1.294);
 
+  // Convert the PDF-point scroll offset to CSS pixels
+  const cssScale = dims.cssWidth ? dims.cssWidth / dims.pdfWidth : 1;
+  const cssScrollOffset = scrollOffset * cssScale;
+
   return (
     <div
-      className={`relative ${className}`}
+      className={`relative overflow-hidden ${className}`}
       style={{ width: dims.cssWidth || width, height: estimatedHeight }}
     >
-      <canvas
-        ref={canvasRef}
+      {/* Canvas + SVG wrapper that slides up when scrollOffset > 0 */}
+      <div
         style={{
-          width: dims.cssWidth || width,
-          height: estimatedHeight,
-          display: "block",
+          transform: `translateY(${-cssScrollOffset}px)`,
+          transition: "transform 0.8s ease-in-out",
         }}
-      />
-      {children && dims.cssWidth > 0 && (
-        <svg
-          className="absolute inset-0 pointer-events-none"
-          style={{ width: dims.cssWidth, height: dims.cssHeight }}
-          viewBox={`0 0 ${dims.pdfWidth} ${dims.pdfHeight}`}
-          preserveAspectRatio="xMinYMin meet"
-        >
-          {children}
-        </svg>
-      )}
+      >
+        <canvas
+          ref={canvasRef}
+          style={{
+            width: dims.cssWidth || width,
+            height: estimatedHeight,
+            display: "block",
+          }}
+        />
+        {children && dims.cssWidth > 0 && (
+          <svg
+            className="absolute top-0 left-0 pointer-events-none"
+            style={{ width: dims.cssWidth, height: dims.cssHeight }}
+            viewBox={`0 0 ${dims.pdfWidth} ${dims.pdfHeight}`}
+            preserveAspectRatio="xMinYMin meet"
+          >
+            {children}
+          </svg>
+        )}
+      </div>
     </div>
   );
 }

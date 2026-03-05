@@ -9,12 +9,12 @@ import {
 } from "lucide-react";
 import { DrawingToolbar, DrawingTool } from "./components/DrawingToolbar";
 import { TranscriptModal } from "./components/TranscriptModal";
-import { SceneOne } from "./components/scenes/SceneOne";
-import { SceneTwo } from "./components/scenes/SceneTwo";
-import { SceneThree } from "./components/scenes/SceneThree";
+import { PDFWorkspace } from "./components/PDFWorkspace";
 import { SceneFour } from "./components/scenes/SceneFour";
+import { SceneZero } from "./components/scenes/SceneZero";
 
 const SCENE_LABELS = [
+  "Open App",
   "Upload Assignment",
   "Problem 1: Odd² Proof",
   "Problem 2: Even Product",
@@ -22,6 +22,7 @@ const SCENE_LABELS = [
 ];
 
 const SCENE_NOTES = [
+  "Welcome",
   "Homework 3",
   "Problem 1 — Direct Proof",
   "Problem 2 — Contradiction",
@@ -29,7 +30,7 @@ const SCENE_NOTES = [
 ];
 
 export default function App() {
-  const [scene, setScene] = useState(1);
+  const [scene, setScene] = useState(0);
   const [currentTool, setCurrentTool] = useState<DrawingTool>("pen");
   const [currentColor, setCurrentColor] = useState("#1C1C1E");
   const [strokeSize, setStrokeSize] = useState(2);
@@ -39,7 +40,7 @@ export default function App() {
   const timeStr = now.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: false });
 
   const goNext = () => setScene((s) => Math.min(4, s + 1));
-  const goPrev = () => setScene((s) => Math.max(1, s - 1));
+  const goPrev = () => setScene((s) => Math.max(0, s - 1));
 
   return (
     <div
@@ -87,25 +88,27 @@ export default function App() {
         <div className="flex flex-1 overflow-hidden">
           {/* Content */}
           <div className="flex-1 flex flex-col overflow-hidden relative">
-            {/* Toolbar row */}
-            <div className="flex items-center h-14 bg-white border-b border-[#E5E5EA] shrink-0 z-10">
-              <div className="flex-1 overflow-hidden">
-                <DrawingToolbar
-                  currentTool={currentTool}
-                  currentColor={currentColor}
-                  strokeSize={strokeSize}
-                  onToolChange={setCurrentTool}
-                  onColorChange={setCurrentColor}
-                  onStrokeSizeChange={setStrokeSize}
-                  onUndo={() => {}}
-                  onRedo={() => {}}
-                  onClear={() => {}}
-                  noteTitle={SCENE_NOTES[scene - 1]}
-                  activeScene={scene}
-                  onTranscript={() => setShowTranscript(true)}
-                />
+            {/* Toolbar row — hidden on Scene 0 (it has its own sidebar/UI) */}
+            {scene > 0 && (
+              <div className="flex items-center h-14 bg-white border-b border-[#E5E5EA] shrink-0 z-10">
+                <div className="flex-1 overflow-hidden">
+                  <DrawingToolbar
+                    currentTool={currentTool}
+                    currentColor={currentColor}
+                    strokeSize={strokeSize}
+                    onToolChange={setCurrentTool}
+                    onColorChange={setCurrentColor}
+                    onStrokeSizeChange={setStrokeSize}
+                    onUndo={() => { }}
+                    onRedo={() => { }}
+                    onClear={() => { }}
+                    noteTitle={SCENE_NOTES[scene]}
+                    activeScene={scene}
+                    onTranscript={() => setShowTranscript(true)}
+                  />
+                </div>
               </div>
-            </div>
+            )}
 
             {/* Scene canvas area */}
             <div className="flex-1 relative overflow-hidden">
@@ -116,19 +119,14 @@ export default function App() {
                 scene={scene}
               />
               <AnimatePresence mode="wait">
-                {scene === 1 && (
-                  <motion.div key="s1" className="absolute inset-0" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.4 }}>
-                    <SceneOne isActive={scene === 1} />
+                {scene === 0 && (
+                  <motion.div key="s0" className="absolute inset-0" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.4 }}>
+                    <SceneZero isActive={scene === 0} onComplete={() => setScene(1)} />
                   </motion.div>
                 )}
-                {scene === 2 && (
-                  <motion.div key="s2" className="absolute inset-0" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.4 }}>
-                    <SceneTwo isActive={scene === 2} />
-                  </motion.div>
-                )}
-                {scene === 3 && (
-                  <motion.div key="s3" className="absolute inset-0" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.4 }}>
-                    <SceneThree isActive={scene === 3} />
+                {scene >= 1 && scene <= 3 && (
+                  <motion.div key="workspace" className="absolute inset-0" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.4 }}>
+                    <PDFWorkspace activeScene={scene} />
                   </motion.div>
                 )}
                 {scene === 4 && (
@@ -152,7 +150,7 @@ export default function App() {
         {/* Prev */}
         <button
           onClick={goPrev}
-          disabled={scene === 1}
+          disabled={scene === 0}
           className="w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 border border-white/20 flex items-center justify-center disabled:opacity-30 transition-all"
         >
           <ChevronLeft size={16} color="white" />
@@ -161,7 +159,7 @@ export default function App() {
         {/* Scene dots */}
         <div className="flex items-center gap-2 bg-black/30 backdrop-blur rounded-2xl px-4 py-2.5 border border-white/10">
           {SCENE_LABELS.map((label, i) => {
-            const idx = i + 1;
+            const idx = i;
             const isActive = scene === idx;
             const isDone = scene > idx;
             return (
